@@ -38,7 +38,7 @@ public class GameCommands {
             desc = "Unbinds the bot from a channel.",
             dcPerms = Permission.MANAGE_MSG
     )
-    public static void cmdleave(String[] args, IEventContext ctx) {
+    public static void cmdLave(String[] args, IEventContext ctx) {
         if (ctx.channel() instanceof PrivateChannel) {
             ctx.send("You can't do this in a private channel!");
             return;

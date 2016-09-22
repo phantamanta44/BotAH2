@@ -1,13 +1,16 @@
 package io.github.phantamanta44.botah2.game;
 
+import io.github.phantamanta44.botah2.BotAH;
 import io.github.phantamanta44.botah2.CoreModule;
 import io.github.phantamanta44.botah2.game.deck.BlackCard;
 import io.github.phantamanta44.botah2.game.deck.DeckManager;
-import io.github.phantamanta44.discord4j.core.StaticInit;
 import io.github.phantamanta44.discord4j.core.event.Events;
 import io.github.phantamanta44.discord4j.core.event.Handler;
 import io.github.phantamanta44.discord4j.core.event.context.IEventContext;
-import io.github.phantamanta44.discord4j.data.wrapper.*;
+import io.github.phantamanta44.discord4j.data.wrapper.Channel;
+import io.github.phantamanta44.discord4j.data.wrapper.GuildUser;
+import io.github.phantamanta44.discord4j.data.wrapper.PrivateChannel;
+import io.github.phantamanta44.discord4j.data.wrapper.User;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.Arrays;
@@ -25,12 +28,12 @@ public class GameManager {
 
 	private static Channel chan;
 	private static int ind = 0, havePlayed = 0;
-	private static GuildUser[] players;
+	private static String[] players;
 	private static Hand[] hands;
 	private static State state = State.OFF;
 	private static BlackCard blackCard;
-	private static Map<GuildUser, List<String>> plays;
-	private static List<Pair<GuildUser, List<String>>> choices;
+	private static Map<String, List<String>> plays;
+	private static List<Pair<String, List<String>>> choices;
 
 	public static void setChannel(Channel chan) {
 		GameManager.chan = chan;
@@ -58,7 +61,7 @@ public class GameManager {
 
 	public static void start(int cnt) {
 		state = State.WAITING;
-		players = new GuildUser[cnt];
+		players = new String[cnt];
 		chan.send("**A Cards Against Humanity game is starting!**\nType `count me in` to join the fun!");
 	}
 
@@ -66,8 +69,8 @@ public class GameManager {
 		User sender = ctx.user();
 		if (state == State.WAITING) {
 			if (ctx.message().body().equalsIgnoreCase("count me in")
-					&& Arrays.stream(players).filter(p -> p != null).noneMatch(p -> p.id().equalsIgnoreCase(ctx.user().id()))) {
-				players[ind++] = sender.of(ctx.guild());
+					&& Arrays.stream(players).filter(p -> p != null).noneMatch(p -> p.equalsIgnoreCase(ctx.user().id()))) {
+				players[ind++] = sender.id();
 				ctx.send("**%s** has joined the game! (%d/%d)", sender.tag(), ind, players.length);
 			}
 			if (ind >= players.length) {
@@ -83,14 +86,14 @@ public class GameManager {
 				nextTurn();
 			}
 		}
-		else if (state == State.JUDGING && players[ind].id().equalsIgnoreCase(ctx.user().id()))
+		else if (state == State.JUDGING && players[ind].equalsIgnoreCase(ctx.user().id()))
 			judge(ctx);
 	}
 
 	private static void nextTurn() {
 		ind = (ind + 1) % players.length;
 		havePlayed = 0;
-		chan.send("```%s```\n**%s is the Card Czar!**", getPlayerState(), players[ind].name());
+		chan.send("```%s```\n**%s is the Card Czar!**", getPlayerState(), resolvePlayer(ind).name());
 		try {
 			blackCard = DeckManager.getBlack();
 		} catch (IndexOutOfBoundsException e) {
@@ -108,19 +111,19 @@ public class GameManager {
 			if (i == ind)
 				continue;
 			final int index = i;
-			players[i].privateChannel().done(c -> c.send("`%s`\n\n__**Your Hand**__\n%s\n*(Pick %d card(s)) *", blackCard.text, hands[index], blackCard.pick));
+			resolvePlayer(i).privateChannel().done(c -> c.send("`%s`\n\n__**Your Hand**__\n%s\n*(Pick %d card(s)) *", blackCard.text, hands[index], blackCard.pick));
 		}
 	}
 
 	private static void procPm(IEventContext ctx) {
-		if (players[ind].id().equalsIgnoreCase(ctx.user().id())) {
+		if (players[ind].equalsIgnoreCase(ctx.user().id())) {
 			if (state == State.JUDGING)
 				judge(ctx);
 			else
 				ctx.send("You are the Card Czar! You can't play a card this round.");
 		} else {
 			if (state == State.PLAYING) {
-				List<String> play = plays.get(ctx.user().of(ctx.guild()));
+				List<String> play = plays.get(ctx.user().id());
 				if (play.size() < blackCard.pick) {
 					try {
 						int cardNum = Integer.parseInt(ctx.message().body());
@@ -130,7 +133,9 @@ public class GameManager {
 						play.add(card);
 						ctx.send("Played \"%s\". (%d/%d)", card.replaceAll("\\.", ""), play.size(), blackCard.pick);
 						if (play.size() >= blackCard.pick)
-							onPlayed(ctx.user().of(ctx.guild()));
+							onPlayed(ctx.user().of(chan.guild()));
+                        else
+                            ctx.send("__**Your Hand**__\n%s\n*(Pick %d card(s)) *", hands[indexOf(ctx.user())], blackCard.pick);
 					} catch (IndexOutOfBoundsException|NumberFormatException e) {
 						ctx.send("Invalid card index!");
 					}
@@ -161,7 +166,7 @@ public class GameManager {
 	private static void judge(IEventContext ctx) {
 		String msg = ctx.message().body();
 		try {
-			GuildUser winner = choices.get(Integer.parseInt(msg) - 1).getKey();
+			GuildUser winner = BotAH.bot().user(choices.get(Integer.parseInt(msg) - 1).getKey()).of(ctx.guild());
 			chan.send("**%s won this round!**", winner.displayName());
 			Hand hand = hands[indexOf(winner)];
 			hand.win(blackCard);
@@ -195,7 +200,7 @@ public class GameManager {
 
 	private static int indexOf(User user) {
 		for (int i = 0; i < players.length; i++) {
-			if (players[i].id().equalsIgnoreCase(user.id()))
+			if (players[i].equalsIgnoreCase(user.id()))
 				return i;
 		}
 		return -1;
@@ -204,9 +209,13 @@ public class GameManager {
 	public static String getPlayerState() {
 		StringBuilder scores = new StringBuilder();
 		for (int i = 0; i < players.length; i++)
-			scores.append("\n").append(String.format("%s: %d point(s)", players[i].displayName(), hands[i].blackCards.size()));
+			scores.append("\n").append(String.format("%s: %d point(s)", resolvePlayer(i).displayName(), hands[i].blackCards.size()));
 		return scores.toString();
 	}
+
+	private static GuildUser resolvePlayer(int i) {
+        return BotAH.bot().user(players[i]).of(chan.guild());
+    }
 
 	private static class Hand {
 
@@ -255,8 +264,7 @@ public class GameManager {
 		if (chan != null) {
 			if (ctx.channel().id().equalsIgnoreCase(chan.id()))
 				procMsg(ctx);
-			else if (ctx.channel() instanceof PrivateChannel
-					&& Arrays.stream(players).anyMatch(p -> ctx.user().id().equalsIgnoreCase(p.id())))
+			else if (ctx.channel() instanceof PrivateChannel && Arrays.stream(players).anyMatch(p -> ctx.user().id().equalsIgnoreCase(p)))
 				procPm(ctx);
 		}
 	}

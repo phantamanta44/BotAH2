@@ -10,11 +10,9 @@ import io.github.phantamanta44.botah2.command.CommandDispatcher;
 import io.github.phantamanta44.discord4j.core.Discord;
 import io.github.phantamanta44.discord4j.data.wrapper.Bot;
 import io.github.phantamanta44.discord4j.data.wrapper.Guild;
-import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import sx.blah.discord.Discord4J;
 
-import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;

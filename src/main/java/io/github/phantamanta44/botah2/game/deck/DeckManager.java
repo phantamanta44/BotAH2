@@ -99,7 +99,6 @@ public class DeckManager {
 	private static final String CC_DINFO = "https://api.cardcastgame.com/v1/decks/%s", CC_DCARDS = CC_DINFO + "/cards";
 
 	public static IUnaryPromise<Deck> loadCardcast(String deckId) {
-        System.out.println(String.format(CC_DINFO, deckId));
         UnaryDeferred<Deck> def = new UnaryDeferred<>();
         IOUtils.requestJson(String.format(CC_DINFO, deckId)).done(i ->
             IOUtils.requestJson(String.format(CC_DCARDS, deckId)).done(c -> {
