@@ -93,7 +93,7 @@ public class GameManager {
 	private static void nextTurn() {
 		ind = (ind + 1) % players.length;
 		havePlayed = 0;
-		chan.send("```%s```\n**%s is the Card Czar!**", getPlayerState(), resolvePlayer(ind).name());
+		chan.send("```%s```\n**%s is the Card Czar!**", getPlayerState(), resolvePlayer(ind).displayName());
 		try {
 			blackCard = DeckManager.getBlack();
 		} catch (IndexOutOfBoundsException e) {
@@ -156,6 +156,7 @@ public class GameManager {
 					.filter(e -> !e.getValue().isEmpty())
 					.map(e -> Pair.of(e.getKey(), e.getValue()))
 					.sequential()
+					.sorted((a, b) -> (int)Math.floor(Math.random() * 3F - 1F))
 					.collect(Collectors.toCollection(CopyOnWriteArrayList::new));
 			chan.send("__**Winner Selection**__\n%s", choices.stream()
 					.map(c -> String.format("%d | %s", choices.indexOf(c) + 1, blackCard.supplant(c.getValue())))
@@ -166,7 +167,7 @@ public class GameManager {
 	private static void judge(IEventContext ctx) {
 		String msg = ctx.message().body();
 		try {
-			GuildUser winner = BotAH.bot().user(choices.get(Integer.parseInt(msg) - 1).getKey()).of(ctx.guild());
+			GuildUser winner = BotAH.bot().user(choices.get(Integer.parseInt(msg) - 1).getKey()).of(ctx.guild()); // TODO Fix NPE if we aren't in judging mode yet
 			chan.send("**%s won this round!**", winner.displayName());
 			Hand hand = hands[indexOf(winner)];
 			hand.win(blackCard);

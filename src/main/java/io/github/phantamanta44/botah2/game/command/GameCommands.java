@@ -65,7 +65,7 @@ public class GameCommands {
             desc = "Starts a Cards Against Humanity match with the specified number of players.",
             dcPerms = Permission.MANAGE_MSG
     )
-    public static void cmdStart(String[] args, IEventContext ctx) {
+    public static void cmdStart(String[] args, IEventContext ctx) { // TODO Make game queue size dynamic (i.e. can start game with however many players)
         if (GameManager.getChannel() == null) {
             ctx.send("You must bind the bot to a channel with `join` before playing!");
             return;
